@@ -1,0 +1,46 @@
+# Environment variables - NEVER commit these
+.env
+.env.local
+.env.production
+
+# Python
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-log.txt
+
+# Node / Frontend
+node_modules/
+dist/
+.DS_Store
+*.local
+
+# Uploads directory (user files)
+uploads/
+backend/uploads/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
