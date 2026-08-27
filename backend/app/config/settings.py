@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     upload_dir: str = "uploads"
 
     # Generation & Embedding Models
-    generation_model: str = "gemini-2.5-flash"
+    generation_model: str = "gemini-3.5-flash-lite"
     embedding_model: str = "models/gemini-embedding-001"
     embedding_dimension: int = 3072
 
