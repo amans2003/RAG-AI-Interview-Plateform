@@ -21,6 +21,7 @@ class Settings(BaseSettings):
 
     # App
     frontend_url: str = "http://localhost:5173"
+    cors_origins: str = "*"
     max_upload_size_mb: int = 10
     upload_dir: str = "uploads"
 

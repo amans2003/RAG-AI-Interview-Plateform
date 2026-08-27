@@ -41,17 +41,28 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # CORS — allow frontend origin
+    # CORS — allow frontend origin and all Vercel preview/production domains
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+    if settings.frontend_url:
+        for url in settings.frontend_url.split(","):
+            u = url.strip()
+            if u and u not in allowed_origins:
+                allowed_origins.append(u)
+    if settings.cors_origins:
+        for url in settings.cors_origins.split(","):
+            u = url.strip()
+            if u and u != "*" and u not in allowed_origins:
+                allowed_origins.append(u)
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            settings.frontend_url,
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-        ],
-        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+        allow_origins=allowed_origins,
+        allow_origin_regex=r"^(https?://.*\.vercel\.app|https?://.*\.onrender\.com|https?://localhost(:\d+)?|https?://127\.0\.0\.1(:\d+)?)$",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
