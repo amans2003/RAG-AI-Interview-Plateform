@@ -95,14 +95,74 @@ async def _fallback_text_search(
     Returns most recent chunks for the user.
     """
     logger.warning("Using fallback text search — configure MongoDB Atlas Vector Search index")
-    query = {"user_id": ObjectId(user_id)}
+    # First try querying document_chunks by ObjectId or string
+    query = {"$or": [{"user_id": ObjectId(user_id)}, {"user_id": str(user_id)}]}
     if document_id:
-        query["document_id"] = ObjectId(document_id)
+        try:
+            doc_oid = ObjectId(document_id)
+            query = {"$and": [query, {"$or": [{"document_id": doc_oid}, {"document_id": str(document_id)}]}]}
+        except Exception:
+            query = {"$and": [query, {"document_id": str(document_id)}]}
     if document_type:
-        query["document_type"] = document_type
+        query = {"$and": [query, {"document_type": document_type}]}
 
     cursor = db.document_chunks.find(query).limit(top_k)
-    return await cursor.to_list(top_k)
+    results = await cursor.to_list(top_k)
+    if results:
+        return results
+
+    # If no chunks found, fallback directly to raw resume / job collections
+    fallback_chunks = []
+    if not document_type or document_type == "resume":
+        resume_query = {"$or": [{"user_id": ObjectId(user_id)}, {"user_id": str(user_id)}]}
+        if document_id:
+            try:
+                resume_query["_id"] = ObjectId(document_id)
+            except Exception:
+                resume_query["_id"] = document_id
+        resumes = await db.resumes.find(resume_query).sort("created_at", -1).to_list(top_k)
+        for r in resumes:
+            text = r.get("raw_text", "")
+            if not text and r.get("parsed_data"):
+                text = str(r.get("parsed_data"))
+            if text:
+                fallback_chunks.append({
+                    "_id": str(r["_id"]),
+                    "text": text[:3000],
+                    "document_id": str(r["_id"]),
+                    "document_type": "resume",
+                    "chunk_index": 0,
+                    "metadata": {
+                        "source_name": r.get("file_name", "Resume"),
+                        "section": "summary",
+                        "skills": r.get("parsed_data", {}).get("skills", []),
+                    },
+                })
+
+    if not document_type or document_type == "job":
+        job_query = {"$or": [{"user_id": ObjectId(user_id)}, {"user_id": str(user_id)}]}
+        if document_id:
+            try:
+                job_query["_id"] = ObjectId(document_id)
+            except Exception:
+                job_query["_id"] = document_id
+        jobs = await db.jobs.find(job_query).sort("created_at", -1).to_list(top_k)
+        for j in jobs:
+            text = f"{j.get('title', '')}\n{j.get('company', '')}\n{j.get('description', '')}"
+            fallback_chunks.append({
+                "_id": str(j["_id"]),
+                "text": text[:3000],
+                "document_id": str(j["_id"]),
+                "document_type": "job",
+                "chunk_index": 0,
+                "metadata": {
+                    "source_name": f"{j.get('company', '')} - {j.get('title', '')}",
+                    "section": "job_description",
+                    "skills": j.get("skills", []),
+                },
+            })
+
+    return fallback_chunks[:top_k]
 
 
 async def store_chunks(chunks: List[dict]) -> List[str]:
